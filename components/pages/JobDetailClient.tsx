@@ -97,7 +97,9 @@ export default function JobDetailClient({ job }: JobDetailClientProps) {
             >
               <ArrowLeft className="w-5 h-5 text-gray-700" />
             </Link>
-            <span className="font-semibold text-gray-900">Job Details</span>
+            <span className="font-semibold text-gray-900">
+              {job.category === 'scholarships' ? 'Scholarship Details' : 'Job Details'}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -178,11 +180,15 @@ export default function JobDetailClient({ job }: JobDetailClientProps) {
 
         {/* ──── D) Description Section ──── */}
         <motion.section variants={fadeUpVariants} className="mt-8 px-4">
-          <SectionHeader icon={FileText} title="About This Position" />
+          <SectionHeader
+            icon={FileText}
+            title={job.category === 'scholarships' ? 'About This Scholarship' : 'About This Position'}
+          />
           <p className="text-gray-600 leading-relaxed text-sm">
             {job.description}
           </p>
         </motion.section>
+
 
         {/* ──── E) Eligibility Section ──── */}
         <motion.section variants={fadeUpVariants} className="mt-8 px-4">

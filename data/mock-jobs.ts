@@ -16,6 +16,10 @@ export interface Job {
   isNew: boolean;
   postedDate: string;
   description: string;
+  /** Short summary shown in search results; falls back to first 160 chars of description */
+  excerpt?: string;
+  /** Searchable tags: districts, towns, keywords */
+  tags?: string[];
   eligibility: string[];
   howToApply: ApplyStep[];
   importantLinks: { label: string; url: string }[];
@@ -44,6 +48,7 @@ export interface FilterPill {
 
 // ─── Filter Pills ────────────────────────────────────────────────────────────
 
+/** All-purpose pills (legacy, kept for backward compat) */
 export const filterPills: FilterPill[] = [
   { label: '10th Pass', value: '10th', icon: 'GraduationCap' },
   { label: 'Degree', value: 'degree', icon: 'BookOpen' },
@@ -53,6 +58,26 @@ export const filterPills: FilterPill[] = [
   { label: 'Police', value: 'police', icon: 'Shield' },
   { label: 'Railway', value: 'railway', icon: 'Train' },
   { label: 'Health', value: 'health', icon: 'Heart' },
+];
+
+/** Pills shown only in the Jobs tab (scholarships excluded) */
+export const jobFilterPills: FilterPill[] = [
+  { label: 'All Jobs', value: 'all', icon: 'Building2' },
+  { label: '10th Pass', value: '10th', icon: 'GraduationCap' },
+  { label: 'Degree', value: 'degree', icon: 'BookOpen' },
+  { label: 'Results', value: 'results', icon: 'FileCheck' },
+  { label: 'KPSC', value: 'kpsc', icon: 'Building2' },
+  { label: 'Police', value: 'police', icon: 'Shield' },
+  { label: 'Railway', value: 'railway', icon: 'Train' },
+  { label: 'Health', value: 'health', icon: 'Heart' },
+];
+
+/** Pills shown only in the Scholarships tab */
+export const scholarshipFilterPills: FilterPill[] = [
+  { label: 'All Scholarships', value: 'all', icon: 'Award' },
+  { label: 'SC/ST', value: 'sc-st', icon: 'Award' },
+  { label: 'OBC', value: 'obc', icon: 'Award' },
+  { label: 'Merit', value: 'merit', icon: 'GraduationCap' },
 ];
 
 // ─── Mock Jobs ───────────────────────────────────────────────────────────────
@@ -421,3 +446,161 @@ export const mockJobs: Job[] = [
     ],
   },
 ];
+
+// ─── Karnataka Districts & Towns ─────────────────────────────────────────────
+
+/**
+ * Canonical list of Karnataka districts and major towns/talukas.
+ * Used by the district-fallback search to detect location intent.
+ */
+export const KARNATAKA_DISTRICTS: string[] = [
+  // Districts
+  'bagalkot', 'ballari', 'belagavi', 'bengaluru', 'bangalore', 'bidar',
+  'chamarajanagar', 'chikkaballapur', 'chikkamagaluru', 'chitradurga',
+  'dakshina kannada', 'davanagere', 'dharwad', 'gadag', 'hassan',
+  'haveri', 'kalaburagi', 'gulbarga', 'kodagu', 'kolar', 'koppal',
+  'mandya', 'mysuru', 'mysore', 'raichur', 'ramanagara', 'shivamogga',
+  'shimoga', 'tumakuru', 'tumkur', 'udupi', 'uttara kannada', 'vijayapura',
+  'bijapur', 'vijayanagara', 'yadgir',
+  // Major towns / talukas
+  'gokak', 'hubli', 'hubballi', 'mangaluru', 'mangalore', 'belgaum',
+  'bellary', 'hospet', 'hampi', 'bidar', 'gulbarga', 'yelahanka',
+  'whitefield', 'electronic city', 'jayanagar', 'rajajinagar', 'hebbal',
+  'shirdi', 'tiptur', 'channapatna', 'maddur', 'srirangapatna',
+  'nanjangud', 'hunsur', 'kushalnagar', 'madikeri', 'sagara',
+  'shimoga', 'bhadravati', 'chikmagalur', 'kadur', 'hassan',
+  'holenarasipur', 'belur', 'arsikere', 'sullia', 'puttur',
+  'bantwal', 'manipal', 'kundapura', 'sirsi', 'karwar', 'ankola',
+  'ron', 'shiggaon', 'savanur', 'byadagi', 'hirekerur',
+  'ranebennur', 'nargund', 'mundargi', 'lakshmeshwar',
+  'mudhol', 'jamkhandi', 'ilkal', 'hungund', 'badami', 'bagalkot',
+  'sindhanur', 'manvi', 'lingasugur', 'devadurga', 'raichur',
+  'yadgiri', 'shorapur', 'shahpur', 'surpur', 'chincholi',
+  'aland', 'sedam', 'chittapur', 'gulbarga', 'afzalpur',
+  'jevargi', 'kalgi', 'humnabad', 'aurad', 'bhalki',
+];
+
+// ─── Smart Filtering Utilities ────────────────────────────────────────────────
+
+export type FilterResult = {
+  jobs: Job[];
+  fallbackMessage: string | null;
+};
+
+/**
+ * Checks whether the search query contains a Karnataka location keyword.
+ * Returns the matched location string, or null.
+ */
+export function extractLocationFromQuery(query: string): string | null {
+  const q = query.toLowerCase().trim();
+  for (const place of KARNATAKA_DISTRICTS) {
+    if (q.includes(place)) return place;
+  }
+  return null;
+}
+
+/**
+ * Full-text match: checks title, department, description, excerpt, tags,
+ * location, and qualification fields.
+ */
+function jobMatchesText(job: Job, q: string): boolean {
+  const needle = q.toLowerCase();
+  return (
+    job.title.toLowerCase().includes(needle) ||
+    job.department.toLowerCase().includes(needle) ||
+    job.departmentShort.toLowerCase().includes(needle) ||
+    job.description.toLowerCase().includes(needle) ||
+    (job.excerpt ?? '').toLowerCase().includes(needle) ||
+    job.location.toLowerCase().includes(needle) ||
+    job.qualification.toLowerCase().includes(needle) ||
+    (job.tags ?? []).some((t) => t.toLowerCase().includes(needle))
+  );
+}
+
+/**
+ * Returns jobs that are NOT scholarships (i.e. the Jobs feed).
+ */
+export function getJobFeed(): Job[] {
+  return mockJobs.filter((j) => j.category !== 'scholarships');
+}
+
+/**
+ * Returns only scholarships.
+ */
+export function getScholarshipFeed(): Job[] {
+  return mockJobs.filter((j) => j.category === 'scholarships');
+}
+
+/**
+ * Filters the **Jobs** feed with:
+ * 1. Category pill filter (skips if 'all')
+ * 2. Smart text search with district/town fallback logic
+ *
+ * Returns a `FilterResult` with the matched jobs and an optional fallback
+ * message to display when the district fallback kicks in.
+ */
+export function filterJobs(
+  searchQuery: string,
+  activeCategory: string
+): FilterResult {
+  const baseFeed = getJobFeed();
+
+  // Step 1 – apply category pill filter
+  let categoryFiltered =
+    activeCategory === 'all'
+      ? baseFeed
+      : baseFeed.filter((j) => j.category === activeCategory);
+
+  // Step 2 – no search query → return category-filtered list as-is
+  const q = searchQuery.trim();
+  if (!q) return { jobs: categoryFiltered, fallbackMessage: null };
+
+  // Step 3 – check if query contains a location keyword
+  const location = extractLocationFromQuery(q);
+
+  if (location) {
+    // Try to find jobs that specifically mention this location
+    const locationSpecific = categoryFiltered.filter((j) =>
+      jobMatchesText(j, location)
+    );
+
+    if (locationSpecific.length > 0) {
+      return { jobs: locationSpecific, fallbackMessage: null };
+    }
+
+    // CRITICAL FALLBACK: no location-specific jobs found → show all Karnataka jobs
+    return {
+      jobs: categoryFiltered,
+      fallbackMessage: `No specific jobs found for "${location.charAt(0).toUpperCase() + location.slice(1)}". Showing all Government Jobs in Karnataka near your location.`,
+    };
+  }
+
+  // Step 4 – generic full-text search (no location detected)
+  const textMatched = categoryFiltered.filter((j) => jobMatchesText(j, q));
+  return { jobs: textMatched, fallbackMessage: null };
+}
+
+/**
+ * Filters the **Scholarships** feed.
+ * Scholarships use a simpler filter: text search across key fields.
+ * The `activeCategory` pill is for scholarship-specific sub-categories
+ * (e.g. 'sc-st', 'obc', 'merit') matched against tags.
+ */
+export function filterScholarships(
+  searchQuery: string,
+  activeCategory: string
+): Job[] {
+  let feed = getScholarshipFeed();
+
+  // Sub-category filter for scholarships
+  if (activeCategory !== 'all') {
+    feed = feed.filter((j) =>
+      (j.tags ?? []).some((t) => t.toLowerCase() === activeCategory)
+    );
+  }
+
+  const q = searchQuery.trim();
+  if (!q) return feed;
+
+  return feed.filter((j) => jobMatchesText(j, q));
+}
